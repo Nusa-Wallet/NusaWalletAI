@@ -22,7 +22,7 @@ import catboost
 from app.fraud.explain.shap_explain import global_shap_summary
 from app.fraud.feature_spec import MODEL_FEATURES
 from app.fraud.simulation.config import DATASET_VERSION, SCHEMA_VERSION
-from app.fraud.training.data import load_dataset, time_split, to_xy
+from app.fraud.training.data import feature_matrix, load_dataset, time_split, to_xy
 from app.fraud.training.ensemble import (
     DEFAULT_WEIGHTS,
     EnsembleModel,
@@ -77,7 +77,7 @@ def _git_commit() -> str | None:
 
 def predict_risk(catboost_model, isolation, ensemble: EnsembleModel, df: pd.DataFrame) -> np.ndarray:
     """Compute the calibrated ensemble risk for a frame (shared by serving/tests)."""
-    x, _ = to_xy(df)
+    x = feature_matrix(df)
     supervised = catboost_proba(catboost_model, x)
     anomaly = isolation.score(x)
     rules = rules_score(df)

@@ -60,6 +60,25 @@ Risk levels are `LOW`, `MEDIUM`, and `HIGH`. Recommended actions are `ALLOW`,
 `REVIEW_IF_NEEDED`, and `REVIEW_REQUIRED`. A score is decision support and does
 not independently settle or reject a payment.
 
+When the trained ensemble is loaded (Phase 7), `component_scores.supervised` is
+populated (previously `null`), `model` is `"CatBoost + IsolationForest + rules
+(calibrated ensemble)"`, and `model_version` is `fraud-ensemble-1.0.0`. `factors`
+are populated for flagged transactions. If the trained artifacts or ML dependencies
+are absent, the service falls back to the demo model with the same response shape
+(`supervised` stays `null`, `model_version` `fraud-baseline-0.1.0`). Online scoring
+uses backend-supplied history where present and the documented missing-value policy
+otherwise, so accuracy improves as the backend sends richer context.
+
+### Model info
+
+```http
+GET /models/fraud/info
+```
+
+Returns the served model's version, dataset/schema versions, feature names and order,
+ensemble weights, decision thresholds, held-out test metrics, and top SHAP drivers
+(or `{"available": false, ...}` when only the demo model is loaded).
+
 ## FX advisory
 
 ### Current GET request

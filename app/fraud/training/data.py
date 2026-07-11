@@ -45,10 +45,14 @@ def time_split(df: pd.DataFrame, train_frac: float = 0.6, val_frac: float = 0.2)
     )
 
 
-def to_xy(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-    """Return the ordered model-feature matrix and integer label vector."""
+def feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
+    """Return the ordered model-feature matrix (no label needed — used at inference)."""
     x = df[list(MODEL_FEATURES)].copy()
     for col in BOOL_FEATURES:
         x[col] = x[col].astype(int)
-    y = df[LABEL_COLUMN].astype(int)
-    return x, y
+    return x
+
+
+def to_xy(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """Return the ordered model-feature matrix and integer label vector."""
+    return feature_matrix(df), df[LABEL_COLUMN].astype(int)

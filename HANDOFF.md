@@ -15,12 +15,13 @@ complete product/proposal context.
 - Phase 4 (fraud feature engineering): completed and tested. See "Phase 4 result".
 - Phase 5 (CatBoost fraud training): completed and tested. See "Phase 5 result".
 - Phase 6 (fraud explainability): completed and tested. See "Phase 6 result".
-- Phase 7 onward: not implemented.
+- Phase 7 (fraud FastAPI integration): completed and tested. See "Phase 7 result".
+- Phase 8 onward (FX track): not implemented.
 
-Existing backend-compatible endpoints remain POST /fraud/score, GET /fx/advisory,
-and GET /health — still the demo model/rules until Phase 7 wires in the trained
-bundle + explanations. Note: mlflow.db is committed/tracked and changes on every
-training run — consider `git rm --cached mlflow.db` + gitignore before committing.
+The fraud track (Phases 3-7) is complete end-to-end. POST /fraud/score now serves the
+trained ensemble (demo fallback if artifacts/ML deps absent); GET /fx/advisory and
+GET /health remain; GET /models/fraud/info is new. Note: mlflow.db is committed/tracked
+and changes on every training run — consider `git rm --cached mlflow.db` + gitignore.
 
 The served models are still the demo Isolation Forest/rules and statistical FX
 logic. Advanced response fields remain null; do not fabricate forecast values.
@@ -226,15 +227,40 @@ are low-importance drivers (top drivers: payer_age_days, payer_velocity_10m, amo
 amount_ratio_user). Pushing these types higher would require either a real curated
 country/identity signal on real data or gaming the simulator (rejected as dishonest).
 
-## Next work: Phase 7
+## Phase 7 result (fraud FastAPI integration)
 
-Wire the trained bundle into FastAPI. On startup load the artifacts
-(load_bundle) — never train at startup. POST /fraud/score should build the
-HistoricalContext (from backend-supplied velocity/history fields, falling back to the
-missing-value policy), compute predict_risk, map to LOW/MEDIUM/HIGH + action, and
-return explain_if_flagged factors. Keep the old response fields backward compatible
-(CONTRACTS.md); add GET /models/fraud/info from fraud_metadata.json. Preserve the
-demo fallback when artifacts are absent so the service still starts.
+app/fraud/inference.py (FraudScorer) loads the bundle once at startup via load_bundle
+(never trains). score() builds the feature frame through the SAME build_features /
+HistoricalContext path used offline, computes the calibrated ensemble risk, maps to
+LOW/MEDIUM/HIGH (+ ALLOW/REVIEW_IF_NEEDED/REVIEW_REQUIRED), and attaches
+explain_if_flagged factors. main.py lazy-imports the scorer in lifespan so the API
+still starts without ML deps/artifacts (demo fallback); it never trains the real model
+at startup. Endpoints: POST /fraud/score (trained or demo), GET /models/fraud/info,
+GET /health (now reports fraud_model_loaded). Service version 0.3.0.
+
+Online-context limitation: the request carries only partial history (velocity hints,
+is_new_payer); the rest uses the missing-value policy (HistoricalContext defaults), so
+amount_ratio/zscore default and country/currency seen_before default False. The backend
+should send richer history when available. amount_idr uses the same RATE_TO_IDR as
+training so it is comparable.
+
+Definition of done — met: inference needs no retraining; POST /fraud/score and GET
+/health stay backward compatible (component_scores.supervised is now populated instead
+of null; new fields only added); a parity test asserts the API risk equals the offline
+predict_risk on the same frame. Verified live on uvicorn: minimal {amount,currency}
+request -> LOW/ALLOW; high-risk request -> HIGH/flagged with 5 Indonesian factors;
+/models/fraud/info returns model version + test metrics. Full suite: 53 tests pass.
+
+CONTRACTS.md updated to reflect the served ensemble and the new info endpoint.
+
+## Next work: Phase 8 (start of the FX track)
+
+Build the global FX dataset: fetch ECB/Frankfurter daily rates (target pairs SGD/IDR,
+USD/IDR, EUR/IDR, MYR/IDR; 8-15 years, 30-100 pairs for global training), store raw
+responses with provenance, compute cross-rates + log-returns + lag/rolling features,
+handle weekends/holidays without aggressive interpolation, and produce chronological
+splits + walk-forward windows. Real market data (not synthetic). Then Phase 9:
+zero-shot Chronos-2 / TimesFM backtests before any NHITS training or fine-tuning.
 
 ## Verification and guardrails
 
