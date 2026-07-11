@@ -13,7 +13,7 @@ from app.config import SUPPORTED_CURRENCIES  # noqa: F401 (re-exported for calle
 from app.fraud.features import TYPICAL_AMOUNT
 
 DATASET_VERSION = "fraud-synthetic-v1"
-SCHEMA_VERSION = "fraud-txn-schema-1.0.0"
+SCHEMA_VERSION = "fraud-txn-schema-1.1.0"  # 1.1.0: Phase 4 canonical feature set
 
 # Static conversion used only to normalise transaction amounts to IDR for
 # cross-currency comparability. These are simulation constants, not live rates;

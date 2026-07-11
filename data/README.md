@@ -24,8 +24,11 @@ Reproducible generator: `app/fraud/simulation` (logic) + `scripts/generate_fraud
 
 Outputs (both gitignored):
 
-- `synthetic/fraud-synthetic-v1.parquet` — labelled transactions with past-only
-  historical/behavioural features (canonical schema in `app/fraud/simulation/schema.py`).
+- `synthetic/fraud-synthetic-v1.parquet` — labelled transactions with the past-only
+  canonical feature set (`app/fraud/feature_spec.py`: transaction / behavioural /
+  velocity / identity / geographic groups; column order in
+  `app/fraud/simulation/schema.py`). Training and online inference build these via the
+  same `app.fraud.features.build_features`.
 - `synthetic/fraud-synthetic-v1.metadata.json` — seed, git commit, date range, row
   count, anomaly counts per scenario, currency/amount distributions, library versions.
 

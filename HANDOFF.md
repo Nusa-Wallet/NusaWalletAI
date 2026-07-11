@@ -12,12 +12,14 @@ complete product/proposal context.
 - Phase 2 (local dependencies and MLflow): committed (requirements-ml.txt). The ML
   deps live in the workspace-root venv (../venv), not the base requirements.txt env.
 - Phase 3 (fraud dataset generator): completed and tested. See "Phase 3 result".
-- Phases 4 onward: not implemented.
+- Phase 4 (fraud feature engineering): completed and tested. See "Phase 4 result".
+- Phases 5 onward: not implemented.
 
-The working tree contains uncommitted Phase 3 changes (app/fraud/simulation, the
-scripts/generate_fraud_data.py CLI, and tests/test_fraud_simulation.py). Do not
+The working tree contains uncommitted Phase 3-4 changes (app/fraud/simulation,
+app/fraud/feature_spec.py, the expanded app/fraud/features.py, the
+scripts/generate_fraud_data.py CLI, and the tests/test_fraud_*.py suites). Do not
 discard them. Existing backend-compatible endpoints remain POST /fraud/score,
-GET /fx/advisory, and GET /health.
+GET /fx/advisory, and GET /health (still the demo model until Phase 7).
 
 The served models are still the demo Isolation Forest/rules and statistical FX
 logic. Advanced response fields remain null; do not fabricate forecast values.
@@ -126,12 +128,44 @@ the simulation tests self-skip if pandas/pandera are absent).
 Not yet done: full 200k-500k generation on Kaggle CPU (run the same CLI with larger
 --rows/--users/--months there).
 
-## Next work: Phase 4
+## Phase 4 result (fraud feature engineering)
 
-Feature engineering: extend app/fraud/simulation/features.py into the canonical
-training feature set (hour_sin/cos, payer_name_quality, duplicate_similarity, split
-into transaction/behavioural/velocity/identity/geographic groups). Reuse the same
-code path for training and online inference; add per-feature unit tests.
+Canonical feature set with one shared training/inference code path:
+
+- app/fraud/feature_spec.py — single source of truth: MODEL_FEATURES (16, ordered),
+  FEATURE_GROUPS (transaction / behavioural / velocity / identity / geographic),
+  MISSING_DEFAULTS (first-transaction policy).
+- app/fraud/features.py — stateless transforms (hour_sin/cos, payer_name_quality,
+  duplicate_similarity) plus build_features(RawTransaction, HistoricalContext) which
+  assembles the exact MODEL_FEATURES vector. Legacy demo helpers retained.
+- app/fraud/simulation/features.py — the batch pass now streams per-user/payer state
+  and calls build_features per row, so training vectors == what online inference
+  (Phase 7) will build. Still strictly past-only.
+
+Schema bumped to fraud-txn-schema-1.1.0; dataset now has 27 columns. New feature
+columns added to CANONICAL_COLUMNS and Pandera: hour_sin, hour_cos,
+duplicate_similarity, payer_name_quality.
+
+Definition of done — met and verified:
+
+- training and inference use identical code (build_features); a parity test asserts
+  the batch row equals a hand-built context result;
+- no future/label leakage preserved (state updated after emit; existing tests);
+- missing-value policy is explicit (MISSING_DEFAULTS + HistoricalContext defaults);
+- per-feature unit tests added; full suite is 27 tests, all passing.
+- Regenerated 50k dataset validates; features are discriminative by anomaly type
+  (e.g. INVALID_IDENTITY name-quality ~0.03 vs ~1.0 normal; AMOUNT_SPIKE ratio ~7.5),
+  zero NaNs.
+
+## Next work: Phase 5
+
+Train the CatBoost fraud model (Kaggle GPU per compute plan): chronological split
+(months 1-14 train / 15-18 val / 19-24 test), class weighting, Optuna tuning,
+Isolation Forest + rules ensemble, probability calibration, threshold on validation,
+single final test evaluation. Consume the MODEL_FEATURES vector; log to MLflow.
+Metrics: precision/recall/F1, PR-AUC, ROC-AUC, FPR, Brier, recall per anomaly type.
+Note: the 50k local dataset is for wiring; run full 200k-500k generation on Kaggle
+first (same CLI, larger --rows/--users/--months).
 
 ## Verification and guardrails
 

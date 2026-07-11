@@ -87,6 +87,7 @@ class FraudSimulationTest(unittest.TestCase):
             {
                 "user_id": [1, 1, 1],
                 "payer_id": ["p1", "p1", "p1"],
+                "payer_name": ["John Tan", "John Tan", "John Tan"],
                 "amount_idr": [1_000_000.0, 2_000_000.0, 3_000_000.0],
                 "currency": ["USD", "USD", "USD"],
                 "origin_country": ["US", "US", "US"],
