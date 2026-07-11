@@ -9,14 +9,15 @@ complete product/proposal context.
 
 - Phase 0 (API contracts): completed.
 - Phase 1 (modular scaffolding): completed and tested.
-- Phase 2 (local dependencies and MLflow): reported completed manually by the
-  developer. requirements-ml.txt exists but is currently uncommitted; review and
-  commit it before relying on reproducible experiments.
-- Phases 3 onward: not implemented.
+- Phase 2 (local dependencies and MLflow): committed (requirements-ml.txt). The ML
+  deps live in the workspace-root venv (../venv), not the base requirements.txt env.
+- Phase 3 (fraud dataset generator): completed and tested. See "Phase 3 result".
+- Phases 4 onward: not implemented.
 
-The working tree contains uncommitted Phase 0-1 changes. Do not discard them.
-Existing backend-compatible endpoints remain POST /fraud/score, GET /fx/advisory,
-and GET /health.
+The working tree contains uncommitted Phase 3 changes (app/fraud/simulation, the
+scripts/generate_fraud_data.py CLI, and tests/test_fraud_simulation.py). Do not
+discard them. Existing backend-compatible endpoints remain POST /fraud/score,
+GET /fx/advisory, and GET /health.
 
 The served models are still the demo Isolation Forest/rules and statistical FX
 logic. Advanced response fields remain null; do not fabricate forecast values.
@@ -94,27 +95,43 @@ Generated artifacts and datasets are ignored by Git. Commit schemas, metadata
 templates, generator/training code, and tests. Keep Kaggle datasets private unless
 explicitly approved; never upload personal/financial data or credentials.
 
-## Next work: Phase 3
+## Phase 3 result (fraud dataset generator)
 
-Implement the fraud dataset generator:
+Implemented under app/fraud/simulation (importable business logic) with a thin CLI:
 
-1. Define canonical transaction and user/payer profile schemas.
-2. Generate realistic per-user normal behavior.
-3. Inject named, overlapping anomaly scenarios.
-4. Compute historical features using past data only.
-5. Write Parquet plus dataset metadata JSON.
-6. Add Pandera validation and unit tests.
-7. Run a small deterministic sample locally.
-8. Run full generation on Kaggle CPU.
+    ../venv/Scripts/python.exe scripts/generate_fraud_data.py            # full 50k
+    ../venv/Scripts/python.exe scripts/generate_fraud_data.py --sample   # fast smoke
 
-Definition of done:
+Modules: config (constants + SimulationConfig, fixed calendar window and seed),
+profiles (user/payer), transactions (normal + shared record/time/amount helpers),
+anomalies (the 10 named scenario injectors, round-robin so every type appears),
+features (single past-only forward pass; velocities via bisect on sorted per-key
+timestamps; documented missing-value policy), schema (CANONICAL_COLUMNS + Pandera),
+generator (orchestration + provenance metadata). Outputs land in the gitignored
+data/synthetic/ as fraud-synthetic-v1.parquet + .metadata.json.
 
-- same seed produces identical data;
-- IDs unique, amounts positive, currencies supported, timestamps valid;
-- every anomaly type represented;
-- no future or label leakage;
-- distributions and anomaly counts reported;
-- 50,000 rows generate and validate end-to-end.
+Definition of done — all met and verified on the root venv:
+
+- same seed produces identical data (assert_frame_equal test);
+- IDs unique, amounts positive, currencies supported, timestamps in-window (Pandera);
+- every anomaly type represented (round-robin dispatch + test);
+- no future or label leakage (features computed before state update; truncation-
+  invariance and windowing tests);
+- distributions and anomaly counts recorded in metadata JSON;
+- 50,000 rows generate and validate end-to-end (5.01% anomalies).
+
+Run tests: ../venv/Scripts/python.exe -m unittest discover -s tests -v (18 pass;
+the simulation tests self-skip if pandas/pandera are absent).
+
+Not yet done: full 200k-500k generation on Kaggle CPU (run the same CLI with larger
+--rows/--users/--months there).
+
+## Next work: Phase 4
+
+Feature engineering: extend app/fraud/simulation/features.py into the canonical
+training feature set (hour_sin/cos, payer_name_quality, duplicate_similarity, split
+into transaction/behavioural/velocity/identity/geographic groups). Reuse the same
+code path for training and online inference; add per-feature unit tests.
 
 ## Verification and guardrails
 
