@@ -13,13 +13,16 @@ complete product/proposal context.
   deps live in the workspace-root venv (../venv), not the base requirements.txt env.
 - Phase 3 (fraud dataset generator): completed and tested. See "Phase 3 result".
 - Phase 4 (fraud feature engineering): completed and tested. See "Phase 4 result".
-- Phases 5 onward: not implemented.
+- Phase 5 (CatBoost fraud training): completed and tested. See "Phase 5 result".
+- Phase 6 onward: not implemented.
 
-The working tree contains uncommitted Phase 3-4 changes (app/fraud/simulation,
-app/fraud/feature_spec.py, the expanded app/fraud/features.py, the
-scripts/generate_fraud_data.py CLI, and the tests/test_fraud_*.py suites). Do not
-discard them. Existing backend-compatible endpoints remain POST /fraud/score,
-GET /fx/advisory, and GET /health (still the demo model until Phase 7).
+The working tree contains uncommitted Phase 3-5 changes (app/fraud/simulation,
+app/fraud/feature_spec.py, the expanded app/fraud/features.py, app/fraud/training,
+the scripts/generate_fraud_data.py + scripts/train_fraud.py CLIs, and the
+tests/test_fraud_*.py suites). Do not discard them. Existing backend-compatible
+endpoints remain POST /fraud/score, GET /fx/advisory, and GET /health (still the
+demo model until Phase 7). Note: mlflow.db is committed/tracked and changes on every
+training run — consider `git rm --cached mlflow.db` + gitignore before committing.
 
 The served models are still the demo Isolation Forest/rules and statistical FX
 logic. Advanced response fields remain null; do not fabricate forecast values.
@@ -157,15 +160,50 @@ Definition of done — met and verified:
   (e.g. INVALID_IDENTITY name-quality ~0.03 vs ~1.0 normal; AMOUNT_SPIKE ratio ~7.5),
   zero NaNs.
 
-## Next work: Phase 5
+## Phase 5 result (CatBoost fraud training)
 
-Train the CatBoost fraud model (Kaggle GPU per compute plan): chronological split
-(months 1-14 train / 15-18 val / 19-24 test), class weighting, Optuna tuning,
-Isolation Forest + rules ensemble, probability calibration, threshold on validation,
-single final test evaluation. Consume the MODEL_FEATURES vector; log to MLflow.
-Metrics: precision/recall/F1, PR-AUC, ROC-AUC, FPR, Brier, recall per anomaly type.
-Note: the 50k local dataset is for wiring; run full 200k-500k generation on Kaggle
-first (same CLI, larger --rows/--users/--months).
+Pipeline under app/fraud/training with a thin CLI:
+
+    ../venv/Scripts/python.exe scripts/train_fraud.py            # full run + MLflow
+    ../venv/Scripts/python.exe scripts/train_fraud.py --n-trials 40 --no-mlflow
+
+Modules: data (chronological time_split by quantile + to_xy over MODEL_FEATURES),
+models (CatBoost with Balanced class weights, IsolationScorer normalised to [0,1],
+vectorised transparent rules_score), tuning (Optuna if installed else deterministic
+random search — Optuna is NOT in the venv, so it used random search), ensemble
+(weighted blend 0.6/0.25/0.15 + isotonic calibration on val + FPR-capped threshold),
+evaluate (precision/recall/F1, PR-AUC, ROC-AUC, FPR, Brier, per-anomaly-type recall),
+pipeline (runs the 5 experiments, logs MLflow, writes artifacts + metadata).
+
+MLflow: MLflow 3.x dropped the file store, so logging uses the repo sqlite backend
+(sqlite:///mlflow.db); override with MLFLOW_TRACKING_URI. 5 runs logged to experiment
+"fraud". Best-effort: training still completes and saves artifacts if MLflow fails.
+
+Artifacts (gitignored, in artifacts/): fraud_catboost.cbm, fraud_isolation.joblib,
+fraud_calibrator.joblib (holds the EnsembleModel: weights + isotonic calibrator +
+threshold), fraud_metadata.json (model/dataset/schema versions, feature names+order,
+ensemble weights, threshold, all experiment metrics, tuning info, git commit, seed,
+library versions, split row counts). Reload via app.fraud.training.pipeline.load_bundle;
+predict_risk() is the shared scoring path for Phase 7.
+
+Test-set results on the 50k dataset (30k/10k/10k chronological split), full-ensemble:
+precision 0.96, recall 0.84, F1 0.898, PR-AUC 0.909, ROC-AUC 0.952, FPR 0.0019,
+Brier 0.0084. Definition of done — all met: FPR far below the 0.20 target; ensemble
+beats rules-only on F1 (0.898 vs 0.739) and PR-AUC; risk probability calibrated
+(low Brier); artifacts reload deterministically; reproducible from seed. Per-type
+recall is strong for account-takeover/invalid-identity/new-payer/structuring (~1.0)
+and weaker for country/currency-deviation (~0.2-0.4) — expected, since those scenarios
+overlap legitimate first-time-payer behaviour; revisit in Phase 6.
+
+Not yet done: full 200k-500k / 18-24 month generation + training on Kaggle GPU (same
+CLIs, larger dataset). The month-based 14/4/6 split maps onto time_split fractions.
+
+## Next work: Phase 6
+
+Fraud explainability: SHAP global summary + per-transaction values on the CatBoost
+model, combine with triggered rule contributions, and render 3-5 Indonesian-language
+factors per high-risk prediction. Do not use an LLM to pick the primary reason; do not
+leak sensitive detection detail to payers. Wire the top factors into the score output.
 
 ## Verification and guardrails
 
