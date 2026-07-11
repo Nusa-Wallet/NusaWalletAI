@@ -14,14 +14,12 @@ complete product/proposal context.
 - Phase 3 (fraud dataset generator): completed and tested. See "Phase 3 result".
 - Phase 4 (fraud feature engineering): completed and tested. See "Phase 4 result".
 - Phase 5 (CatBoost fraud training): completed and tested. See "Phase 5 result".
-- Phase 6 onward: not implemented.
+- Phase 6 (fraud explainability): completed and tested. See "Phase 6 result".
+- Phase 7 onward: not implemented.
 
-The working tree contains uncommitted Phase 3-5 changes (app/fraud/simulation,
-app/fraud/feature_spec.py, the expanded app/fraud/features.py, app/fraud/training,
-the scripts/generate_fraud_data.py + scripts/train_fraud.py CLIs, and the
-tests/test_fraud_*.py suites). Do not discard them. Existing backend-compatible
-endpoints remain POST /fraud/score, GET /fx/advisory, and GET /health (still the
-demo model until Phase 7). Note: mlflow.db is committed/tracked and changes on every
+Existing backend-compatible endpoints remain POST /fraud/score, GET /fx/advisory,
+and GET /health — still the demo model/rules until Phase 7 wires in the trained
+bundle + explanations. Note: mlflow.db is committed/tracked and changes on every
 training run — consider `git rm --cached mlflow.db` + gitignore before committing.
 
 The served models are still the demo Isolation Forest/rules and statistical FX
@@ -198,12 +196,45 @@ overlap legitimate first-time-payer behaviour; revisit in Phase 6.
 Not yet done: full 200k-500k / 18-24 month generation + training on Kaggle GPU (same
 CLIs, larger dataset). The month-based 14/4/6 split maps onto time_split fractions.
 
-## Next work: Phase 6
+## Phase 6 result (fraud explainability)
 
-Fraud explainability: SHAP global summary + per-transaction values on the CatBoost
-model, combine with triggered rule contributions, and render 3-5 Indonesian-language
-factors per high-risk prediction. Do not use an LLM to pick the primary reason; do not
-leak sensitive detection detail to payers. Wire the top factors into the score output.
+Canonical rules moved to app/fraud/rules_engine.py (vectorised mask + scalar
+Indonesian template per rule), shared by the training ensemble (models.rules_score
+re-exports it) and the explainability layer. app/fraud/explain/ contains:
+
+- shap_explain.py — TreeSHAP via CatBoost's native ShapValues (no extra runtime dep):
+  global_shap_summary + per-row shap_matrix.
+- templates.py — Indonesian templates for model (SHAP)-only factors, keyed by topic.
+- service.py — explain_transaction / explain_if_flagged: combine triggered rules
+  (preferred, value-specific wording) with positive SHAP contributions, de-duplicate
+  by topic, rank, cap at 3-5. Flagged transactions always get >=1 reason. No LLM.
+
+Pipeline now computes a global SHAP summary and writes artifacts/fraud_shap_summary.json
+(+ top-10 in fraud_metadata.json). Demo: scripts/explain_fraud.py prints factors for a
+flagged example per anomaly type.
+
+Definition of done — met: every high-risk prediction has reasons; factors match feature
+values (e.g. "Nominal transaksi sekitar 8.7x lebih besar..."); no LLM chooses reasons;
+messages are merchant-facing risk reasons, not payer-facing secrets.
+
+Phase 5 flag addressed: added a transparent high_risk_country rule (general FATF-style
+list in rules_engine, not the generator's internal set). COUNTRY_DEVIATION recall rose
+0.18 -> 0.27 and ensemble F1 0.898 -> 0.900. CURRENCY_DEVIATION stayed ~0.39: those
+payers originate from normal countries with modest amounts, so a country-risk list
+cannot separate them — the SHAP summary confirms country/currency "seen_before" flags
+are low-importance drivers (top drivers: payer_age_days, payer_velocity_10m, amount_idr,
+amount_ratio_user). Pushing these types higher would require either a real curated
+country/identity signal on real data or gaming the simulator (rejected as dishonest).
+
+## Next work: Phase 7
+
+Wire the trained bundle into FastAPI. On startup load the artifacts
+(load_bundle) — never train at startup. POST /fraud/score should build the
+HistoricalContext (from backend-supplied velocity/history fields, falling back to the
+missing-value policy), compute predict_risk, map to LOW/MEDIUM/HIGH + action, and
+return explain_if_flagged factors. Keep the old response fields backward compatible
+(CONTRACTS.md); add GET /models/fraud/info from fraud_metadata.json. Preserve the
+demo fallback when artifacts are absent so the service still starts.
 
 ## Verification and guardrails
 

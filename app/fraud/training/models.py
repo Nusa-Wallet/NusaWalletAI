@@ -12,6 +12,10 @@ import pandas as pd
 from catboost import CatBoostClassifier
 from sklearn.ensemble import IsolationForest
 
+# Canonical transparent rules live in one place, shared with the explainability
+# layer so a triggered rule always has a matching human-readable reason.
+from app.fraud.rules_engine import rules_score  # noqa: F401  (re-exported)
+
 
 def default_catboost_params(seed: int = 42) -> dict:
     return {
@@ -79,29 +83,5 @@ def train_isolation(x_train: pd.DataFrame, contamination: float = 0.05, seed: in
     return IsolationScorer(model=model, lo=lo, hi=hi)
 
 
-# --- Transparent business rules --------------------------------------------
-
-# Each rule contributes a fixed score when triggered; the row score is the strongest
-# triggered signal (the conservative policy used by the live demo service).
-def rules_score(df: pd.DataFrame) -> np.ndarray:
-    """Vectorised transparent rule score in [0, 1] (max of triggered rules)."""
-    score = np.zeros(len(df), dtype=float)
-    conds = {
-        "amount_ratio_user": df["amount_ratio_user"].to_numpy() > 5,
-        "amount_zscore_user": df["amount_zscore_user"].to_numpy() > 4,
-        "odd_hour": df["hour"].to_numpy() < 6,
-        "payer_name_quality": df["payer_name_quality"].to_numpy() < 0.3,
-        "payer_velocity_10m": df["payer_velocity_10m"].to_numpy() >= 3,
-        "duplicate_similarity": df["duplicate_similarity"].to_numpy() > 0.9,
-        "new_payer_high_amount": (~df["payer_seen_before"].to_numpy()) & (df["amount_ratio_user"].to_numpy() > 3),
-        "currency_deviation": ~df["currency_seen_before"].to_numpy(),
-        "country_deviation": ~df["country_seen_before"].to_numpy(),
-    }
-    weights = {
-        "amount_ratio_user": 0.85, "amount_zscore_user": 0.75, "odd_hour": 0.60,
-        "payer_name_quality": 0.75, "payer_velocity_10m": 0.80, "duplicate_similarity": 0.70,
-        "new_payer_high_amount": 0.70, "currency_deviation": 0.45, "country_deviation": 0.45,
-    }
-    for name, mask in conds.items():
-        score = np.maximum(score, np.where(mask, weights[name], 0.0))
-    return score
+# Transparent business rules (rules_score) are defined in app.fraud.rules_engine and
+# re-exported above so training and explanation share one source of truth.

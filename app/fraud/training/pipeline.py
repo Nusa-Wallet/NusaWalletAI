@@ -19,6 +19,7 @@ import pandas as pd
 import sklearn
 import catboost
 
+from app.fraud.explain.shap_explain import global_shap_summary
 from app.fraud.feature_spec import MODEL_FEATURES
 from app.fraud.simulation.config import DATASET_VERSION, SCHEMA_VERSION
 from app.fraud.training.data import load_dataset, time_split, to_xy
@@ -46,6 +47,7 @@ CATBOOST_FILE = "fraud_catboost.cbm"
 ISOLATION_FILE = "fraud_isolation.joblib"
 ENSEMBLE_FILE = "fraud_calibrator.joblib"  # holds EnsembleModel (calibrator+weights+threshold)
 METADATA_FILE = "fraud_metadata.json"
+SHAP_SUMMARY_FILE = "fraud_shap_summary.json"
 
 
 @dataclass
@@ -155,6 +157,9 @@ def run_training(config: TrainingConfig | None = None) -> dict:
     cb_tuned = train_catboost(x_tr, y_tr, x_val, y_val, params=best_params, seed=config.seed)
     sup = {"val": catboost_proba(cb_tuned, x_val), "test": catboost_proba(cb_tuned, x_te)}
 
+    # Global SHAP importance (Phase 6) on a test sample for the model card.
+    shap_summary = global_shap_summary(cb_tuned, x_te.head(min(2000, len(x_te))))
+
     contamination = float(np.clip(y_tr.mean(), 0.01, 0.3))
     isolation = train_isolation(x_tr, contamination=contamination, seed=config.seed)
     anom = {"val": isolation.score(x_val), "test": isolation.score(x_te)}
@@ -223,6 +228,7 @@ def run_training(config: TrainingConfig | None = None) -> dict:
         },
         "metrics": experiments,
         "recall_per_anomaly_type": per_type,
+        "shap_global_summary_top": dict(list(shap_summary.items())[:10]),
         "definition_of_done": dod,
         "library_versions": {
             "python": platform.python_version(),
@@ -235,6 +241,8 @@ def run_training(config: TrainingConfig | None = None) -> dict:
 
     artifacts_dir = Path(config.artifacts_dir)
     save_bundle(artifacts_dir, cb_tuned, isolation, ensemble, metadata)
+    (artifacts_dir / SHAP_SUMMARY_FILE).write_text(json.dumps(shap_summary, indent=2), encoding="utf-8")
 
     return {"experiments": experiments, "definition_of_done": dod, "metadata": metadata,
-            "recall_per_anomaly_type": per_type, "artifacts_dir": str(artifacts_dir)}
+            "recall_per_anomaly_type": per_type, "shap_global_summary": shap_summary,
+            "artifacts_dir": str(artifacts_dir)}
