@@ -4,9 +4,11 @@ __pycache__/
 venv/
 *.joblib
 .pytest_cache/
+mlflow.db
 mlruns/
 artifacts/*
 !artifacts/.gitkeep
+!artifacts/manifest.example.json
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*

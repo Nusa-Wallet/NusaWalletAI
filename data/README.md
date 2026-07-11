@@ -35,3 +35,26 @@ Outputs (both gitignored):
 Same seed → identical data. Ten labelled anomaly scenarios (amount spike, velocity
 burst, odd hour, new-payer/high-amount, country/currency deviation, duplicate,
 invalid identity, account takeover, structuring) at ~5% of rows.
+
+## Global FX dataset (Phase 8)
+
+Reproducible builder: `app/fx/dataset` + `scripts/fetch_fx_data.py`. Real ECB reference
+rates via Frankfurter (`https://api.frankfurter.dev/v1`, follow redirects); deterministic
+synthetic fallback offline. Requires the root venv (`../venv`).
+
+```powershell
+..\venv\Scripts\python.exe scripts\fetch_fx_data.py            # ~15y, 90 pairs, real data
+..\venv\Scripts\python.exe scripts\fetch_fx_data.py --sample   # small offline run
+```
+
+Outputs (gitignored):
+
+- `raw/fx-dataset-v1_eur_base.parquet` + `raw/fx-dataset-v1_provenance.json` — the raw
+  EUR-based rates and provider provenance (real vs synthetic).
+- `processed/fx-dataset-v1.parquet` — long panel `[pair, date, rate, log_return, return
+  lags, rolling mean/std, day_of_week, gap_days, split]` for the 90 cross pairs.
+- `processed/fx-dataset-v1.metadata.json` — provenance, cross-rate verification, missing
+  ECB-holiday dates, split counts, and walk-forward windows.
+
+Cross-rate for `"BASE/QUOTE"` = `eur[QUOTE]/eur[BASE]`; features are as-of close of day
+t (leak-free). Missing business days (ECB holidays) are documented, not interpolated.

@@ -16,15 +16,17 @@ complete product/proposal context.
 - Phase 5 (CatBoost fraud training): completed and tested. See "Phase 5 result".
 - Phase 6 (fraud explainability): completed and tested. See "Phase 6 result".
 - Phase 7 (fraud FastAPI integration): completed and tested. See "Phase 7 result".
-- Phase 8 onward (FX track): not implemented.
+- Phase 8 (global FX dataset): completed and tested. See "Phase 8 result".
+- Phase 9 onward (FX modelling): not implemented.
 
-The fraud track (Phases 3-7) is complete end-to-end. POST /fraud/score now serves the
-trained ensemble (demo fallback if artifacts/ML deps absent); GET /fx/advisory and
-GET /health remain; GET /models/fraud/info is new. Note: mlflow.db is committed/tracked
-and changes on every training run — consider `git rm --cached mlflow.db` + gitignore.
+The fraud track (Phases 3-7) is complete end-to-end. The FX track has started with the
+real ECB/Frankfurter dataset (Phase 8). The local MLflow database is intentionally
+ignored by Git; portable metrics and provenance belong in model metadata.
 
-The served models are still the demo Isolation Forest/rules and statistical FX
-logic. Advanced response fields remain null; do not fabricate forecast values.
+FastAPI loads the trained fraud ensemble when compatible artifacts and dependencies
+are available. It falls back to the demo Isolation Forest/rules model only when that
+bundle cannot be loaded. FX still uses the statistical demo logic; advanced FX
+response fields remain null and must not be fabricated before validated models exist.
 
 ## Agreed target models
 
@@ -194,6 +196,11 @@ recall is strong for account-takeover/invalid-identity/new-payer/structuring (~1
 and weaker for country/currency-deviation (~0.2-0.4) — expected, since those scenarios
 overlap legitimate first-time-payer behaviour; revisit in Phase 6.
 
+These metrics measure performance only on the internally generated NusaWallet
+synthetic dataset. They do not establish performance on real financial transactions
+and must not be presented as production fraud-detection accuracy. External benchmark
+and pilot validation remain future work.
+
 Not yet done: full 200k-500k / 18-24 month generation + training on Kaggle GPU (same
 CLIs, larger dataset). The month-based 14/4/6 split maps onto time_split fractions.
 
@@ -253,14 +260,42 @@ request -> LOW/ALLOW; high-risk request -> HIGH/flagged with 5 Indonesian factor
 
 CONTRACTS.md updated to reflect the served ensemble and the new info endpoint.
 
-## Next work: Phase 8 (start of the FX track)
+## Phase 8 result (global FX dataset)
 
-Build the global FX dataset: fetch ECB/Frankfurter daily rates (target pairs SGD/IDR,
-USD/IDR, EUR/IDR, MYR/IDR; 8-15 years, 30-100 pairs for global training), store raw
-responses with provenance, compute cross-rates + log-returns + lag/rolling features,
-handle weekends/holidays without aggressive interpolation, and produce chronological
-splits + walk-forward windows. Real market data (not synthetic). Then Phase 9:
-zero-shot Chronos-2 / TimesFM backtests before any NHITS training or fine-tuning.
+app/fx/dataset/ builds a reproducible long-panel dataset from real ECB rates via
+Frankfurter (endpoint moved to https://api.frankfurter.dev/v1 — must follow redirects).
+Modules: config (FxDatasetConfig: 10-currency universe -> 90 ordered pairs, primary
+SGD/IDR·USD/IDR·EUR/IDR·MYR/IDR, splits, walk-forward params), providers (EUR-base fetch
++ deterministic synthetic fallback + direct cross-rate cross-check), crossrates
+(rate("B/Q") = eur[Q]/eur[B]), features (log_return, return lags, trailing rolling
+mean/std, day_of_week, gap_days — all as-of close of day t, leak-free), splits
+(chronological by date quantile + rolling-origin walk-forward windows), schema (Pandera,
+unique (pair,date)), build (orchestration + provenance/missing-date/verification metadata).
+
+CLI: scripts/fetch_fx_data.py (--start/--end/--sample/--no-verify). Writes raw EUR-base
+parquet + provenance to data/raw/ and the processed panel + metadata to data/processed/
+(both gitignored). build_dataset accepts a `fetcher` for offline tests.
+
+Real build verified: 357,570 rows, 90 pairs, 2010-12-31..2026-07-10 (~15.5 yrs), 3,973
+obs/pair; splits 250,290 / 53,640 / 53,640; 93 walk-forward windows. DoD — all met:
+dataset rebuildable; provider provenance recorded (ecb-via-frankfurter vs
+synthetic-fallback); no duplicate (pair,date); cross-rates verified against direct API
+(max rel error 3.6e-05; EUR/IDR exact); 78 missing ECB-holiday business days documented,
+not interpolated. Offline synthetic tests: 10 pass (63 total in the suite).
+
+Provider note: Frankfurter/ECB publishes base-EUR on TARGET business days; cross-rates
+are computed locally from that single source so all 90 pairs stay internally consistent.
+IDR history via ECB starts ~2011, so that is the practical start of the range.
+
+## Next work: Phase 9 (FX foundation-model backtest)
+
+Zero-shot backtests before any training/fine-tuning: run Chronos-2 and TimesFM 2.5 over
+the walk-forward windows (horizons 1/3/7d) on the primary pairs, saving point + quantile
+forecasts. Metrics: MAE, RMSE, directional accuracy, quantile loss, interval coverage,
+and — crucially — net conversion outcome after the 0.5% fee and maximum regret (decision
+quality, not just price error). Log per-pair to MLflow. Keep a simple statistical
+comparator (the current advisory logic) as the scientific baseline. These libraries are
+heavy (torch etc., requirements-neural.txt) and belong on Kaggle GPU per the compute plan.
 
 ## Verification and guardrails
 

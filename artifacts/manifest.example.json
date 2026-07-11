@@ -1,0 +1,24 @@
+{
+  "model_version": "fraud-ensemble-1.0.0",
+  "dataset_version": "fraud-synthetic-v1",
+  "schema_version": "fraud-txn-schema-1.1.0",
+  "source": "local-or-private-kaggle-artifact",
+  "python_version": "3.11",
+  "files": {
+    "fraud_catboost.cbm": "sha256:<replace-after-training>",
+    "fraud_isolation.joblib": "sha256:<replace-after-training>",
+    "fraud_calibrator.joblib": "sha256:<replace-after-training>",
+    "fraud_metadata.json": "sha256:<replace-after-training>",
+    "fraud_shap_summary.json": "sha256:<replace-after-training>"
+  },
+  "required_metadata": [
+    "feature_names",
+    "preprocessing_version",
+    "ensemble_weights",
+    "threshold",
+    "metrics",
+    "library_versions",
+    "git_commit",
+    "trained_at"
+  ]
+}
