@@ -4,3 +4,12 @@ __pycache__/
 venv/
 *.joblib
 .pytest_cache/
+mlruns/
+artifacts/*
+!artifacts/.gitkeep
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/synthetic/*
+!data/synthetic/.gitkeep

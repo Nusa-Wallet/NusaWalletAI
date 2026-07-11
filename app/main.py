@@ -1,23 +1,24 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
-from app.fraud import scorer
-from app.fx import advisor
+from app.fraud import service as fraud_service
+from app.fx import service as fx_service
+from app.schemas.fraud import FraudScoreRequest, FraudScoreResponse
+from app.schemas.fx import FxAdvisoryRequest, FxAdvisoryResponse
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    scorer.train()  # warm the anomaly model at startup
+    fraud_service.warm_up()  # temporary demo model; persisted artifacts come later
     yield
 
 
 app = FastAPI(
     title="NusaWallet AI Service",
     description="Intelligence Layer — FX Decision-Support (time-series) and fraud/anomaly scoring.",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -34,18 +35,16 @@ def health():
     return {"status": "ok", "service": "nusawallet-ai"}
 
 
-@app.get("/fx/advisory", tags=["fx"])
-def fx_advisory(base: str = "SGD", quote: str = "IDR"):
-    return advisor.advise(base.upper(), quote.upper())
+@app.get("/fx/advisory", response_model=FxAdvisoryResponse, tags=["fx"])
+def fx_advisory(request: FxAdvisoryRequest = Depends()):
+    return fx_service.advise(request.base, request.quote)
 
 
-class FraudRequest(BaseModel):
-    amount: float
-    currency: str
-    payer_name: str = ""
-    hour: int = 12
-
-
-@app.post("/fraud/score", tags=["fraud"])
-def fraud_score(req: FraudRequest):
-    return scorer.score(req.amount, req.currency, req.payer_name, req.hour)
+@app.post("/fraud/score", response_model=FraudScoreResponse, tags=["fraud"])
+def fraud_score(request: FraudScoreRequest):
+    return fraud_service.score(
+        request.amount,
+        request.currency,
+        request.payer_name,
+        request.effective_hour,
+    )
