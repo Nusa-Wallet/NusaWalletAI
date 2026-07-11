@@ -1,0 +1,4 @@
+# Optional local CPU dependencies for Phase 9 zero-shot inference.
+# Install this after requirements-ml.txt in the existing project environment.
+chronos-forecasting==2.3.1
+timesfm[torch]==2.0.2

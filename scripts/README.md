@@ -18,4 +18,6 @@ Run with the workspace-root venv (`../venv/Scripts/python.exe`):
   windows, and writes `../data/raw/` (EUR-base + provenance) and `../data/processed/`
   (panel + metadata). `--sample`/`--no-verify` for a fast offline run.
 
-FX modelling/backtest scripts are scheduled for later phases.
+- `backtest_fx.py` — Phase 9 batched zero-shot backtest. The statistical comparator
+  and both foundation models run locally one at a time. See
+  `../LOCAL_PHASE9.md` and `../requirements-neural.txt`.

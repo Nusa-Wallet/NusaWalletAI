@@ -17,7 +17,9 @@ complete product/proposal context.
 - Phase 6 (fraud explainability): completed and tested. See "Phase 6 result".
 - Phase 7 (fraud FastAPI integration): completed and tested. See "Phase 7 result".
 - Phase 8 (global FX dataset): completed and tested. See "Phase 8 result".
-- Phase 9 onward (FX modelling): not implemented.
+- Phase 9 (FX zero-shot backtest pipeline): implemented; Chronos-2 and TimesFM 2.5
+  execution is pending locally on CPU, one model at a time. See "Phase 9 result".
+- Phase 10 onward: not implemented.
 
 The fraud track (Phases 3-7) is complete end-to-end. The FX track has started with the
 real ECB/Frankfurter dataset (Phase 8). The local MLflow database is intentionally
@@ -77,7 +79,7 @@ The developer laptop has no GPU and limited performance.
 | 6: SHAP/explainability | Hybrid; full run on Kaggle |
 | 7: Fraud FastAPI integration | Laptop |
 | 8: FX fetch/preprocessing | Hybrid |
-| 9: Chronos/TimesFM backtesting | Kaggle GPU |
+| 9: Chronos/TimesFM zero-shot backtesting | Local CPU, one model at a time |
 | 10: NHITS training | Kaggle GPU |
 | 11: foundation-model fine-tuning | Kaggle GPU, only if justified |
 | 12: ensemble/decision engine | Hybrid |
@@ -287,15 +289,30 @@ Provider note: Frankfurter/ECB publishes base-EUR on TARGET business days; cross
 are computed locally from that single source so all 90 pairs stay internally consistent.
 IDR history via ECB starts ~2011, so that is the practical start of the range.
 
-## Next work: Phase 9 (FX foundation-model backtest)
+## Phase 9 result (FX zero-shot backtest)
 
-Zero-shot backtests before any training/fine-tuning: run Chronos-2 and TimesFM 2.5 over
-the walk-forward windows (horizons 1/3/7d) on the primary pairs, saving point + quantile
-forecasts. Metrics: MAE, RMSE, directional accuracy, quantile loss, interval coverage,
-and — crucially — net conversion outcome after the 0.5% fee and maximum regret (decision
-quality, not just price error). Log per-pair to MLflow. Keep a simple statistical
-comparator (the current advisory logic) as the scientific baseline. These libraries are
-heavy (torch etc., requirements-neural.txt) and belong on Kaggle GPU per the compute plan.
+Implemented under app/fx/backtest with:
+
+- stable forecast contracts and quantile-crossing validation;
+- lazy Chronos-2 and TimesFM 2.5 adapters using their official July 2026 APIs;
+- a statistical drift comparator for scientific comparison only;
+- batched rolling-origin evaluation on primary pairs and horizons 1/3/7;
+- strict separation of validation and test forecast cases;
+- MAE, RMSE, MAPE, directional accuracy, pinball loss, and interval coverage;
+- fee-aware outcomes, gain versus immediate conversion, and maximum regret;
+- Parquet/JSON artifacts and best-effort per-model MLflow logging;
+- local mock-model tests requiring no Torch, network, model download, or GPU.
+
+CLI: scripts/backtest_fx.py. Local instructions: LOCAL_PHASE9.md. Optional model
+dependencies: requirements-neural.txt. Run Chronos-2 and TimesFM separately with
+small CPU batches before their complete backtests. No model is trained or fine-tuned
+in this phase.
+
+## Next work
+
+Run the local CPU smoke and complete backtests, verify the fx_backtests artifacts and
+validation/test metrics, then record results here. Phase 10 trains NHITS without
+using Phase 9 test results for model selection.
 
 ## Verification and guardrails
 

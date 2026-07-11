@@ -39,11 +39,12 @@ app/
   main.py            FastAPI endpoints
 data/                raw, processed, and synthetic dataset workspaces
 artifacts/           persisted model artifacts (generated files are ignored)
-scripts/             future data/training/evaluation entry points
+scripts/             data, training, evaluation, and FX backtest entry points
 tests/               contract and service tests
 CONTRACTS.md         version-1 API contract and compatibility policy
 ```
 
-The current models remain the original statistical/Isolation Forest demo models.
-The expanded structure prepares later data, training, evaluation, and model-serving
-phases without claiming that the advanced models already exist.
+Fraud serves a trained calibrated ensemble when compatible local artifacts are
+available and otherwise falls back to the demo model. FX serving remains statistical;
+Phase 9 zero-shot evaluation runs locally one model at a time and is documented in
+LOCAL_PHASE9.md. It does not yet alter the production advisory endpoint.
