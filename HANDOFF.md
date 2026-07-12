@@ -432,15 +432,28 @@ project-wide @expo/vector-icons / expo-router TS7016 declaration errors remain �
 tsconfig/env matter listed as a known gap, not Phase 14). Could not run the Expo app in
 this environment; screens are type-checked but not visually rendered here.
 
-## Next work: Phase 15 (final evaluation and documentation)
+## Phase 15 result (final evaluation and documentation)
 
-Assemble the evaluation/reporting deliverables: dataset card, model card(s), architecture,
-feature definitions, training config, experiment table, fraud confusion matrix +
-calibration curve + SHAP summary, FX walk-forward backtest tables, ablation notes, known
-limitations, and ethical/compliance notes. Wire the demo scenarios end-to-end (normal ->
-LOW, big new-payer -> HIGH/REVIEW_REQUIRED, velocity burst -> REVIEW, FX stable -> convert,
-model disagreement -> split, AI down -> safe fallback). Much of the raw material already
-exists in PHASE9-12_RESULTS.md, fraud/fx metadata JSON, and MLflow — consolidate it.
+`PHASE15_FINAL_REPORT.md` consolidates the dataset cards, fraud/FX model cards,
+architecture, feature definitions, training configuration, experiment/ablation tables,
+FX walk-forward results, limitations, and ethical/compliance notes. The reproducible
+`scripts/generate_phase15_report.py` reloads the frozen bundle without retraining and
+evaluates the original chronological fraud test split. Outputs are stored in
+`reports/phase15/`: exact confusion matrix TN=9467, FP=18, FN=79, TP=436; calibration
+bins/curve; metrics; and SHAP summary.
+
+`tests/test_phase15_demo.py` verifies the five deterministic AI scenarios: normal LOW,
+large new payer HIGH/REVIEW_REQUIRED, velocity burst REVIEW_REQUIRED, stable FX
+CONVERT_NOW, and disagreement SPLIT_CONVERSION. Backend `tests/test_ai_contract.py`
+verifies the sixth scenario: AI unavailable uses the explicit fraud and FX fallbacks.
+All outputs retain synthetic-data/backtest disclaimers and do not claim guaranteed fraud
+detection, legal compliance, rate direction, or profit.
+
+## Project status
+
+Phases 0–15 are implemented. Future work is production hardening: collect representative
+consented real data, revalidate thresholds/fairness, add monitoring and security controls,
+obtain legal/compliance review, and perform device/load/integration testing.
 
 ## Verification and guardrails
 

@@ -1,0 +1,64 @@
+{
+  "phase": 15,
+  "evaluation_policy": "untouched chronological test split; no retraining",
+  "model_version": "fraud-ensemble-1.0.0",
+  "dataset_version": "fraud-synthetic-v1",
+  "threshold": 0.5,
+  "test_rows": 10000,
+  "confusion_matrix": {
+    "labels": [
+      "normal",
+      "fraud"
+    ],
+    "tn": 9467,
+    "fp": 18,
+    "fn": 79,
+    "tp": 436
+  },
+  "calibration_curve": [
+    {
+      "mean_predicted_probability": 0.000698,
+      "observed_positive_fraction": 0.005891
+    },
+    {
+      "mean_predicted_probability": 0.003557,
+      "observed_positive_fraction": 0.005675
+    },
+    {
+      "mean_predicted_probability": 0.004301,
+      "observed_positive_fraction": 0.004667
+    },
+    {
+      "mean_predicted_probability": 0.005352,
+      "observed_positive_fraction": 0.003446
+    },
+    {
+      "mean_predicted_probability": 0.640829,
+      "observed_positive_fraction": 0.649243
+    }
+  ],
+  "metrics": {
+    "threshold": 0.5,
+    "precision": 0.9604,
+    "recall": 0.8466,
+    "f1": 0.8999,
+    "pr_auc": 0.9114,
+    "roc_auc": 0.9517,
+    "fpr": 0.0019,
+    "brier": 0.0082,
+    "support_positive": 515,
+    "support_negative": 9485
+  },
+  "shap_mean_abs_top": {
+    "payer_age_days": 1.091877,
+    "payer_velocity_10m": 1.000253,
+    "amount_idr": 0.659534,
+    "amount_ratio_user": 0.5896,
+    "duplicate_similarity": 0.273441,
+    "amount_zscore_user": 0.205534,
+    "hour_cos": 0.17943,
+    "payer_name_quality": 0.165588,
+    "hour_sin": 0.117544,
+    "payer_velocity_24h": 0.111859
+  }
+}
