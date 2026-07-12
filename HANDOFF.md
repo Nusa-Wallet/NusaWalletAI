@@ -27,7 +27,9 @@ complete product/proposal context.
   PHASE12_RESULTS.md.
 - Phase 13 (backend integration): completed (AI FX serving + NusaWalletBackend). See
   "Phase 13 result". Spans two repos — commit each separately.
-- Phase 14 onward: not implemented.
+- Phase 14 (mobile integration): completed in NusaWalletMobile (rich FX display + split
+  convert + fraud demo). See "Phase 14 result". Separate repo/commit.
+- Phase 15 onward: not implemented.
 
 The fraud track (Phases 3-7) is complete end-to-end. The FX track has started with the
 real ECB/Frankfurter dataset (Phase 8). The local MLflow database is intentionally
@@ -412,14 +414,33 @@ FX passthrough + fallback, fraud full-context + REVIEW_REQUIRED storage + fallba
 conversion split). Live AI /fx/advisory smoke over HTTP with real rates. CONTRACTS.md
 updated. Two repos changed — commit NusaWalletAI and NusaWalletBackend separately.
 
-## Next work: Phase 14 (mobile integration)
+## Phase 14 result (mobile integration)
 
-NusaWalletMobile (React Native/Expo): surface the richer AI outputs — fraud risk level +
-alert + top factors on the pay/transaction view; FX confidence, forecast range, estimated
-gain/loss, and the split percentage on the convert/insights screen, and let the user
-convert the recommended split. Use "estimasi / skenario / rekomendasi berbasis histori"
-language — never "AI menjamin kurs naik". Wire the convert screen to pass convert_percentage.
-Note TS/Expo issues flagged in the root README (donutInner style, declaration errors).
+NusaWalletMobile (React Native/Expo, separate repo/commit). src/api/endpoints.ts: richer
+FxAdvisory type + new actions, fxAdvisory now takes amount/horizon_days/risk_preference,
+WalletApi.convert takes convert_percentage (split), added FraudResult + PaymentApi.pay.
+app/(tabs)/insights.tsx: shows model confidence, forecast range, estimated gain/loss, and
+the recommended split %, a risk-preference selector (Hati-hati/Moderat/Agresif) that
+re-fetches, a "Konversi N% USD sekarang" split-convert action, and an explicit disclaimer
+("estimasi berbasis histori & skenario — bukan jaminan"); also fixed the missing
+donutInner style flagged in the root README. app/(tabs)/receive.tsx: sandbox fraud demo —
+"Pembayaran Normal / Mencurigakan" buttons call POST /payment-links/{code}/pay and render
+the risk level badge (LOW/MEDIUM/HIGH), REVIEW alert, and top factors.
+
+Verified: tsc introduces no new type errors in the changed files (only the pre-existing
+project-wide @expo/vector-icons / expo-router TS7016 declaration errors remain — a
+tsconfig/env matter listed as a known gap, not Phase 14). Could not run the Expo app in
+this environment; screens are type-checked but not visually rendered here.
+
+## Next work: Phase 15 (final evaluation and documentation)
+
+Assemble the evaluation/reporting deliverables: dataset card, model card(s), architecture,
+feature definitions, training config, experiment table, fraud confusion matrix +
+calibration curve + SHAP summary, FX walk-forward backtest tables, ablation notes, known
+limitations, and ethical/compliance notes. Wire the demo scenarios end-to-end (normal ->
+LOW, big new-payer -> HIGH/REVIEW_REQUIRED, velocity burst -> REVIEW, FX stable -> convert,
+model disagreement -> split, AI down -> safe fallback). Much of the raw material already
+exists in PHASE9-12_RESULTS.md, fraud/fx metadata JSON, and MLflow — consolidate it.
 
 ## Verification and guardrails
 
