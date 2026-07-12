@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import FRAUD_MODEL_VERSION
 from app.fraud import service as fraud_service
-from app.fx import service as fx_service
+from app.fx import advisor as fx_advisor
 from app.schemas.fraud import FraudScoreRequest, FraudScoreResponse
 from app.schemas.fx import FxAdvisoryRequest, FxAdvisoryResponse
 
@@ -56,7 +56,10 @@ def health():
 
 @app.get("/fx/advisory", response_model=FxAdvisoryResponse, tags=["fx"])
 def fx_advisory(request: FxAdvisoryRequest = Depends()):
-    return fx_service.advise(request.base, request.quote)
+    return fx_advisor.advise(
+        request.base, request.quote, request.amount,
+        request.horizon_days, request.risk_preference.value,
+    )
 
 
 @app.post("/fraud/score", response_model=FraudScoreResponse, tags=["fraud"])

@@ -121,9 +121,21 @@ GET /fx/advisory?base=SGD&quote=IDR
 ```
 
 Target actions are `CONVERT_NOW`, `HOLD_TEMPORARILY`, and `SPLIT_CONVERSION`.
-Legacy `WAIT` and `HOLD` values remain accepted while clients migrate. Forecast,
-gain/loss, and split fields remain `null` until a validated forecasting model and
-fee-aware decision engine are implemented.
+Legacy `WAIT` and `HOLD` values remain accepted while clients migrate.
+
+As of Phase 13, `GET /fx/advisory` serves the Phase 12 fee-aware decision engine and
+honors `amount`, `horizon_days`, and `risk_preference`. The forecast, `recommended_
+convert_percentage`, `estimated_gain_loss`, scenario, and rationale fields are now
+populated (`model_version` `fx-decision-1.0.0`). If the forecast/series is unavailable
+the service falls back to the legacy statistical advisory (those advanced fields
+`null`). Serving uses a fast statistical-drift forecast feeding the engine; the heavy
+Chronos-2/TimesFM/NHITS ensemble is offline-research only.
+
+Backend integration (Phase 13): the core backend sends full transaction context to
+`POST /fraud/score` (transaction_id, amount, currency, payer_name, occurred_at,
+is_new_payer, origin_country), stores `risk_score`/`risk_level` with the payment, and
+maps `REVIEW_REQUIRED`/flagged to a held `REVIEW_REQUIRED` payment (not credited). The
+conversion endpoint accepts a `convert_percentage` (the split recommendation).
 
 FX output is an explainable scenario estimate, not a guarantee of profit or
 regulated financial advice.

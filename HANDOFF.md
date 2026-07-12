@@ -25,7 +25,9 @@ complete product/proposal context.
   Verdict: fine-tuning not adopted (marginal/inconsistent). Results in PHASE11_RESULTS.md.
 - Phase 12 (FX ensemble + fee-aware decision engine): completed on CPU. Results in
   PHASE12_RESULTS.md.
-- Phase 13 onward: not implemented.
+- Phase 13 (backend integration): completed (AI FX serving + NusaWalletBackend). See
+  "Phase 13 result". Spans two repos — commit each separately.
+- Phase 14 onward: not implemented.
 
 The fraud track (Phases 3-7) is complete end-to-end. The FX track has started with the
 real ECB/Frankfurter dataset (Phase 8). The local MLflow database is intentionally
@@ -387,18 +389,37 @@ mostly CONVERT_NOW with selective SPLIT. statistical-drift's far larger gains
 (+1.79M test) are a high-variance IDR-depreciation trend bet (timesfm doing the same lost
 -347k), not a responsible default. Keep the conservative engine.
 
-## Next work: Phase 13 (backend integration)
+## Phase 13 result (backend integration)
 
-Wire the FX engine + fraud model into the core backend contract. FX: run the ensemble
-models to produce a forecast per (pair, horizon), feed the decision engine, and serve the
-result through GET /fx/advisory (replacing the legacy statistical service) with amount,
-horizon, and risk_preference from the request — keep CONTRACTS.md backward compatible
-(legacy WAIT/HOLD still accepted). Fraud (already served in Phase 7): backend sends full
-transaction context, stores risk score with the transaction, maps HIGH -> REVIEW_REQUIRED,
-and has an explicit fallback when the AI service is unavailable. Add contract tests between
-backend and AI. Serving note: running Chronos-2/TimesFM per request is heavy — consider
-serving FX with the lighter NHITS + statistical ensemble, or precomputed/cached forecasts,
-and keep a demo fallback when neural deps/artifacts are absent.
+AI side: GET /fx/advisory now serves the Phase 12 decision engine via app/fx/advisor.py
+(fast statistical-drift forecast feeding the engine; heavy ensemble stays offline),
+honoring amount/horizon/risk_preference and returning the populated FxAdvisoryResponse;
+falls back to the legacy statistical advisory on any failure. Fixed app/fx/data.py to the
+current Frankfurter host (api.frankfurter.dev/v1, follow redirects) — live rates work
+(e.g. SGD/IDR ~14,001 -> SPLIT 76% now). Fraud already served since Phase 7.
+
+Backend side (NusaWalletBackend, separate repo/commit): payment_link/router sends full
+fraud context (transaction_id, amount, currency, payer_name, occurred_at, is_new_payer,
+origin_country), stores risk_score/risk_level on PaymentLink (new columns +
+REVIEW_REQUIRED status), holds HIGH/REVIEW_REQUIRED payments (402, not credited), keeps an
+explicit AI-unavailable fallback. insights/router forwards amount/horizon/risk_preference
+and passes the response through with a neutral fallback. settlement/router + ConvertRequest
+accept convert_percentage (the split). Backend deps (pydantic-settings/jose/passlib/etc.)
+were installed into the root venv to run tests.
+
+Verified: AI suite 93 tests, backend contract suite 6 tests (in-memory DB + mocked AI:
+FX passthrough + fallback, fraud full-context + REVIEW_REQUIRED storage + fallback,
+conversion split). Live AI /fx/advisory smoke over HTTP with real rates. CONTRACTS.md
+updated. Two repos changed — commit NusaWalletAI and NusaWalletBackend separately.
+
+## Next work: Phase 14 (mobile integration)
+
+NusaWalletMobile (React Native/Expo): surface the richer AI outputs — fraud risk level +
+alert + top factors on the pay/transaction view; FX confidence, forecast range, estimated
+gain/loss, and the split percentage on the convert/insights screen, and let the user
+convert the recommended split. Use "estimasi / skenario / rekomendasi berbasis histori"
+language — never "AI menjamin kurs naik". Wire the convert screen to pass convert_percentage.
+Note TS/Expo issues flagged in the root README (donutInner style, declaration errors).
 
 ## Verification and guardrails
 

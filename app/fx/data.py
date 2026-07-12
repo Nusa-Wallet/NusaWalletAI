@@ -9,10 +9,12 @@ import httpx
 
 def fetch_series(base: str, quote: str, days: int = 30) -> list[float]:
     try:
+        # Frankfurter moved to api.frankfurter.dev/v1 and redirects; follow it.
         response = httpx.get(
-            f"https://api.frankfurter.app/{window_start(days)}..",
-            params={"from": base, "to": quote},
+            f"https://api.frankfurter.dev/v1/{window_start(days)}..",
+            params={"base": base, "symbols": quote},
             timeout=6.0,
+            follow_redirects=True,
         )
         response.raise_for_status()
         rates = response.json()["rates"]
