@@ -17,8 +17,8 @@ complete product/proposal context.
 - Phase 6 (fraud explainability): completed and tested. See "Phase 6 result".
 - Phase 7 (fraud FastAPI integration): completed and tested. See "Phase 7 result".
 - Phase 8 (global FX dataset): completed and tested. See "Phase 8 result".
-- Phase 9 (FX zero-shot backtest pipeline): implemented; Chronos-2 and TimesFM 2.5
-  execution is pending locally on CPU, one model at a time. See "Phase 9 result".
+- Phase 9 (FX zero-shot backtest): completed. Chronos-2, TimesFM 2.5, and the
+  statistical comparator executed on local CPU. Results in PHASE9_RESULTS.md.
 - Phase 10 onward: not implemented.
 
 The fraud track (Phases 3-7) is complete end-to-end. The FX track has started with the
@@ -308,11 +308,25 @@ dependencies: requirements-neural.txt. Run Chronos-2 and TimesFM separately with
 small CPU batches before their complete backtests. No model is trained or fine-tuned
 in this phase.
 
-## Next work
+Executed results (224 cases/model, 672 predictions each; full tables in
+PHASE9_RESULTS.md). Selection on validation only; test metrics reporting-only.
 
-Run the local CPU smoke and complete backtests, verify the fx_backtests artifacts and
-validation/test metrics, then record results here. Phase 10 trains NHITS without
-using Phase 9 test results for model selection.
+- Forecast accuracy (pinball): chronos-2 wins 3/4 pairs; statistical-drift wins MYR/IDR.
+- Fee-aware decision value (net gain vs immediate): statistical-drift wins all 4 pairs.
+- Directional accuracy ~0.5 (coin-flip) for every model.
+- Key finding: the best forecaster (chronos-2) is NOT the best decision maker — the
+  foundation models rarely beat the 0.5% fee so they default to CONVERT_NOW (net gain
+  0), while drift captures the gain. Phase 12 model selection must use fee-aware
+  decision metrics, not pinball/MAE alone.
+
+## Next work: Phase 10 (NHITS global model)
+
+Train one global NHITS across all pairs (pair id = series id) on train/val only —
+never touch the Phase 9 test split for selection. Context 90/180/365, horizon 1/3/7,
+robust scaling, quantile loss, several seeds, early stopping, best checkpoint to MLflow.
+Compare on the same walk-forward windows as Phase 9. Kaggle GPU per the compute plan.
+Carry forward the Phase 9 lesson: judge candidates by fee-aware decision value, not
+price error alone.
 
 ## Verification and guardrails
 
