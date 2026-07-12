@@ -18,6 +18,9 @@ Run with the workspace-root venv (`../venv/Scripts/python.exe`):
   windows, and writes `../data/raw/` (EUR-base + provenance) and `../data/processed/`
   (panel + metadata). `--sample`/`--no-verify` for a fast offline run.
 
-- `backtest_fx.py` — Phase 9 batched zero-shot backtest. The statistical comparator
-  and both foundation models run locally one at a time. See
-  `../LOCAL_PHASE9.md` and `../requirements-neural.txt`.
+- `backtest_fx.py` — Phase 9/10 batched backtest. Zero-shot (statistical, chronos-2,
+  timesfm-2.5) and the trained NHITS (`--models nhits --nhits-checkpoint <dir>`) all run
+  through the same rolling-origin windows. See `../LOCAL_PHASE9.md`.
+- `train_nhits.py` — Phase 10 global NHITS training (CPU): trains on the TRAIN split,
+  saves a checkpoint to `../artifacts/fx_nhits/`, logs to MLflow. See `../LOCAL_PHASE10.md`
+  and `../requirements-neural.txt`.

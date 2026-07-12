@@ -1,4 +1,6 @@
-# Optional local CPU dependencies for Phase 9 zero-shot inference.
+# Optional local CPU dependencies for Phase 9 zero-shot inference and Phase 10 NHITS.
 # Install this after requirements-ml.txt in the existing project environment.
 chronos-forecasting==2.3.1
 timesfm[torch]==2.0.2
+# Phase 10: global NHITS (pulls torch + pytorch-lightning).
+neuralforecast==1.7.5

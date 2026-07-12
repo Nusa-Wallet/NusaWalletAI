@@ -6,6 +6,7 @@ venv/
 .pytest_cache/
 mlflow.db
 mlruns/
+lightning_logs/
 artifacts/*
 !artifacts/.gitkeep
 !artifacts/manifest.example.json

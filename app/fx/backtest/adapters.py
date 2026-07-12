@@ -142,7 +142,7 @@ class TimesFmAdapter:
         return output.validate(len(contexts), horizon)
 
 
-def create_model(name: str, device: str = "cpu"):
+def create_model(name: str, device: str = "cpu", checkpoint: str | None = None):
     normalized = name.strip().lower()
     if normalized in {"statistical", "statistical-drift", "baseline"}:
         return StatisticalComparator()
@@ -150,4 +150,10 @@ def create_model(name: str, device: str = "cpu"):
         return Chronos2Adapter(device=device)
     if normalized in {"timesfm", "timesfm-2.5"}:
         return TimesFmAdapter(device=device)
+    if normalized in {"nhits", "nhits-global"}:
+        if not checkpoint:
+            raise ValueError("nhits requires a checkpoint (pass --nhits-checkpoint)")
+        from app.fx.nhits import NhitsAdapter
+
+        return NhitsAdapter(checkpoint)
     raise ValueError(f"Unknown FX model: {name}")

@@ -19,7 +19,9 @@ complete product/proposal context.
 - Phase 8 (global FX dataset): completed and tested. See "Phase 8 result".
 - Phase 9 (FX zero-shot backtest): completed. Chronos-2, TimesFM 2.5, and the
   statistical comparator executed on local CPU. Results in PHASE9_RESULTS.md.
-- Phase 10 onward: not implemented.
+- Phase 10 (global NHITS): completed on local CPU. Trained + evaluated on the same
+  walk-forward windows as Phase 9. Results in PHASE10_RESULTS.md.
+- Phase 11 onward: not implemented.
 
 The fraud track (Phases 3-7) is complete end-to-end. The FX track has started with the
 real ECB/Frankfurter dataset (Phase 8). The local MLflow database is intentionally
@@ -319,14 +321,40 @@ PHASE9_RESULTS.md). Selection on validation only; test metrics reporting-only.
   0), while drift captures the gain. Phase 12 model selection must use fee-aware
   decision metrics, not pinball/MAE alone.
 
-## Next work: Phase 10 (NHITS global model)
+## Phase 10 result (global NHITS)
 
-Train one global NHITS across all pairs (pair id = series id) on train/val only —
-never touch the Phase 9 test split for selection. Context 90/180/365, horizon 1/3/7,
-robust scaling, quantile loss, several seeds, early stopping, best checkpoint to MLflow.
-Compare on the same walk-forward windows as Phase 9. Kaggle GPU per the compute plan.
-Carry forward the Phase 9 lesson: judge candidates by fee-aware decision value, not
-price error alone.
+Implemented under app/fx/nhits (config, training, adapter) + scripts/train_nhits.py.
+One global NeuralForecast NHITS across all 90 pairs (pair id = series id), MQLoss
+(quantiles 0.1/0.5/0.9), robust scaling, early stopping on a held-out TRAIN tail so
+Phase 8 val/test are untouched. NhitsAdapter implements the Phase 9 ForecastModel
+protocol, so NHITS runs through the identical backtest (scripts/backtest_fx.py --models
+nhits --nhits-checkpoint <dir>). Offline mock tests need no torch/neuralforecast. Local
+CPU guide: LOCAL_PHASE10.md. Requirements: neuralforecast added to requirements-neural.txt.
+Loader note: torch>=2.6 weights_only default is overridden for the trusted local checkpoint.
+
+Executed (input_size 180, 300 CPU steps, seed 42; full tables in PHASE10_RESULTS.md,
+selection on validation only):
+
+- NHITS is competitive on accuracy: best pinball on MYR/IDR, within ~2% of chronos-2
+  elsewhere — good for a small CPU model.
+- Pinball winners across all four models: chronos-2 3/4 pairs, nhits-global MYR/IDR.
+- Directional accuracy ~0.5 for NHITS too.
+- Decision value: NHITS (like the foundation models) rarely beats the 0.5% fee so it
+  defaults to CONVERT_NOW (net gain 0); statistical-drift still wins net gain on all 4
+  pairs. Reinforces the Phase 9 lesson — select the decision engine on fee-aware metrics.
+
+Not done: the full context (90/180/365) × multi-seed grid is CLI-supported but not
+exhaustively run on CPU; a stronger NHITS likely needs more steps / GPU.
+
+## Next work: Phase 11 (foundation-model fine-tuning)
+
+Fine-tune ONLY if justified: zero-shot is not yet adequate AND a GPU is available AND
+the global dataset is large enough. Fine-tune Chronos-2 or TimesFM (not both at once),
+parameter-efficient if possible, small LR, few epochs, early stopping; compare against
+zero-shot on the same walk-forward windows and stop if improvement is inconsistent.
+Given Phase 9/10 findings (accuracy gains did not improve fee-aware decisions), weigh
+whether fine-tuning is worth it before Phase 12's ensemble/decision engine — that may be
+the higher-value next step. Bigger models are not automatically better for FX.
 
 ## Verification and guardrails
 
