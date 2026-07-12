@@ -24,3 +24,6 @@ Run with the workspace-root venv (`../venv/Scripts/python.exe`):
 - `train_nhits.py` — Phase 10 global NHITS training (CPU): trains on the TRAIN split,
   saves a checkpoint to `../artifacts/fx_nhits/`, logs to MLflow. See `../LOCAL_PHASE10.md`
   and `../requirements-neural.txt`.
+- `finetune_fx.py` — Phase 11 Chronos-Bolt fine-tuning (CPU): light fine-tune on the
+  TRAIN split, saves to `../artifacts/fx_finetune/`. Compare vs zero-shot via
+  `backtest_fx.py --models chronos-bolt` / `chronos-bolt-ft`. See `../LOCAL_PHASE11.md`.

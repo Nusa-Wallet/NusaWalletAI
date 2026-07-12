@@ -21,7 +21,9 @@ complete product/proposal context.
   statistical comparator executed on local CPU. Results in PHASE9_RESULTS.md.
 - Phase 10 (global NHITS): completed on local CPU. Trained + evaluated on the same
   walk-forward windows as Phase 9. Results in PHASE10_RESULTS.md.
-- Phase 11 onward: not implemented.
+- Phase 11 (foundation-model fine-tuning): completed on local CPU (Chronos-Bolt).
+  Verdict: fine-tuning not adopted (marginal/inconsistent). Results in PHASE11_RESULTS.md.
+- Phase 12 onward: not implemented.
 
 The fraud track (Phases 3-7) is complete end-to-end. The FX track has started with the
 real ECB/Frankfurter dataset (Phase 8). The local MLflow database is intentionally
@@ -346,15 +348,33 @@ selection on validation only):
 Not done: the full context (90/180/365) × multi-seed grid is CLI-supported but not
 exhaustively run on CPU; a stronger NHITS likely needs more steps / GPU.
 
-## Next work: Phase 11 (foundation-model fine-tuning)
+## Phase 11 result (foundation-model fine-tuning)
 
-Fine-tune ONLY if justified: zero-shot is not yet adequate AND a GPU is available AND
-the global dataset is large enough. Fine-tune Chronos-2 or TimesFM (not both at once),
-parameter-efficient if possible, small LR, few epochs, early stopping; compare against
-zero-shot on the same walk-forward windows and stop if improvement is inconsistent.
-Given Phase 9/10 findings (accuracy gains did not improve fee-aware decisions), weigh
-whether fine-tuning is worth it before Phase 12's ensemble/decision engine — that may be
-the higher-value next step. Bigger models are not automatically better for FX.
+Implemented under app/fx/finetune (config, data, train, adapter) + scripts/finetune_fx.py.
+The 200M Chronos-2/TimesFM are impractical to fine-tune on CPU, so we fine-tuned the
+compact Chronos-Bolt-small (47.7M, ~1s/step). Light recipe on the TRAIN split only (4000
+windows, ctx 512, LR 1e-5, 200 steps, early stopping on a held-out train tail; ~3.7 min).
+ChronosBoltAdapter serves zero-shot ("chronos-bolt") and fine-tuned ("chronos-bolt-ft")
+through the Phase 9 backtest. Offline mock tests need no chronos/torch. Guide: LOCAL_PHASE11.md.
+
+Verdict (full tables in PHASE11_RESULTS.md, validation only): fine-tuning improved mean
+pinball 17.93 -> 17.51 (~2.3%, better on 3/4 pairs) but regressed USD/IDR and left
+directional accuracy at ~0.5 (dropped on SGD). Per the plan's stopping rule (stop if the
+gain over zero-shot is inconsistent) fine-tuning is NOT adopted. It also doesn't touch the
+real bottleneck — fee-aware decision quality, where statistical-drift still wins.
+
+## Next work: Phase 12 (FX ensemble + fee-aware decision engine)
+
+The consistent Phase 9/10/11 finding: accuracy improvements do not improve decisions, and
+the simple drift model wins fee-aware net gain. So Phase 12 is the high-value step and runs
+on CPU. Build the decision engine that turns forecasts into CONVERT_NOW / HOLD_TEMPORARILY /
+SPLIT_CONVERSION with confidence, forecast range, estimated gain/loss, and a split
+percentage. Inputs: forecast distribution, model disagreement, current volatility, the 0.5%
+fee, amount, and risk preference. Weight the ensemble PER PAIR on validation fee-aware
+metrics (net gain / regret), NOT pinball/MAE. Confidence should fall when models disagree.
+Reuse app/fx/backtest metrics; keep FX output as scenario estimates, never guaranteed profit.
+The current live GET /fx/advisory still serves the old statistical decision service until
+Phase 13 wires the new engine in.
 
 ## Verification and guardrails
 

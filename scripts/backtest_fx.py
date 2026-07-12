@@ -40,7 +40,8 @@ def parse_args(argv=None):
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--max-windows", type=int, default=None)
     parser.add_argument("--device", default="cpu")
-    parser.add_argument("--nhits-checkpoint", default=None, help="dir of a trained NHITS checkpoint")
+    parser.add_argument("--checkpoint", default=None, help="checkpoint dir for a trained model (nhits / chronos-bolt-ft)")
+    parser.add_argument("--nhits-checkpoint", default=None, help="alias of --checkpoint (kept for compatibility)")
     parser.add_argument("--fee-rate", type=float, default=0.005)
     parser.add_argument("--amount-base", type=float, default=1000.0)
     parser.add_argument(
@@ -82,7 +83,8 @@ def main(argv=None) -> int:
     panel = pd.read_parquet(args.dataset)
     metadata = json.loads(args.dataset_metadata.read_text(encoding="utf-8"))
     print(f"Models={model_names} pairs={list(pairs)} horizons={list(horizons)}")
-    models = [create_model(name, device=args.device, checkpoint=args.nhits_checkpoint)
+    checkpoint = args.checkpoint or args.nhits_checkpoint
+    models = [create_model(name, device=args.device, checkpoint=checkpoint)
               for name in model_names]
     predictions, result = run_backtest(panel, metadata, models, config)
     output = save_backtest(predictions, result, args.output_root, args.run_id)

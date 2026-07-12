@@ -156,4 +156,14 @@ def create_model(name: str, device: str = "cpu", checkpoint: str | None = None):
         from app.fx.nhits import NhitsAdapter
 
         return NhitsAdapter(checkpoint)
+    if normalized in {"chronos-bolt", "chronos-bolt-zero"}:
+        from app.fx.finetune import ChronosBoltAdapter
+
+        return ChronosBoltAdapter(finetuned=False)  # zero-shot baseline
+    if normalized in {"chronos-bolt-ft", "chronos-bolt-finetuned"}:
+        if not checkpoint:
+            raise ValueError("chronos-bolt-ft requires a checkpoint (pass --checkpoint)")
+        from app.fx.finetune import ChronosBoltAdapter
+
+        return ChronosBoltAdapter(checkpoint, finetuned=True)
     raise ValueError(f"Unknown FX model: {name}")
