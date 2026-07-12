@@ -1,4 +1,9 @@
-"""Current interpretable FX action policy."""
+"""Current interpretable FX action policy (legacy statistical advisory).
+
+Retained for the live GET /fx/advisory demo service until Phase 13 wires in the
+Phase 12 ensemble decision engine. Kept as a submodule of the decision package after the
+package replaced the old app/fx/decision.py module.
+"""
 
 from dataclasses import dataclass
 

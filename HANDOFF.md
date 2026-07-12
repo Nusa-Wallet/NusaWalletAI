@@ -23,7 +23,9 @@ complete product/proposal context.
   walk-forward windows as Phase 9. Results in PHASE10_RESULTS.md.
 - Phase 11 (foundation-model fine-tuning): completed on local CPU (Chronos-Bolt).
   Verdict: fine-tuning not adopted (marginal/inconsistent). Results in PHASE11_RESULTS.md.
-- Phase 12 onward: not implemented.
+- Phase 12 (FX ensemble + fee-aware decision engine): completed on CPU. Results in
+  PHASE12_RESULTS.md.
+- Phase 13 onward: not implemented.
 
 The fraud track (Phases 3-7) is complete end-to-end. The FX track has started with the
 real ECB/Frankfurter dataset (Phase 8). The local MLflow database is intentionally
@@ -363,18 +365,40 @@ directional accuracy at ~0.5 (dropped on SGD). Per the plan's stopping rule (sto
 gain over zero-shot is inconsistent) fine-tuning is NOT adopted. It also doesn't touch the
 real bottleneck — fee-aware decision quality, where statistical-drift still wins.
 
-## Next work: Phase 12 (FX ensemble + fee-aware decision engine)
+## Phase 12 result (FX ensemble + fee-aware decision engine)
 
-The consistent Phase 9/10/11 finding: accuracy improvements do not improve decisions, and
-the simple drift model wins fee-aware net gain. So Phase 12 is the high-value step and runs
-on CPU. Build the decision engine that turns forecasts into CONVERT_NOW / HOLD_TEMPORARILY /
-SPLIT_CONVERSION with confidence, forecast range, estimated gain/loss, and a split
-percentage. Inputs: forecast distribution, model disagreement, current volatility, the 0.5%
-fee, amount, and risk preference. Weight the ensemble PER PAIR on validation fee-aware
-metrics (net gain / regret), NOT pinball/MAE. Confidence should fall when models disagree.
-Reuse app/fx/backtest metrics; keep FX output as scenario estimates, never guaranteed profit.
-The current live GET /fx/advisory still serves the old statistical decision service until
-Phase 13 wires the new engine in.
+Implemented under app/fx/decision (config, weights, ensemble, engine, evaluate) +
+scripts/build_ensemble.py. Combines the existing per-model backtest predictions (no
+re-run) with per-pair inverse-validation-pinball weights, and a pure fee-aware decision
+engine → CONVERT_NOW / HOLD_TEMPORARILY / SPLIT_CONVERSION with confidence (falls with
+disagreement + interval width), recommended_convert_percentage, estimated_gain_loss from
+the user amount, scenarios, and Indonesian rationale — shaped to the frozen
+FxAdvisoryResponse. Note: the package replaced the old app/fx/decision.py module; the
+legacy statistical advisory now lives at app.fx.decision.statistical (service.py updated).
+89 tests pass.
+
+Fee handling corrected: the 0.5% fee is neutral to now-vs-later timing (paid either way),
+so the engine holds on a positive expected move scaled by the fee and gated by confidence,
+rather than using a hard fee hurdle.
+
+Evaluation (amount 1000, MODERATE; full tables in PHASE12_RESULTS.md): the engine is
+conservative and generalises — net gain positive on BOTH val (+38k) and test (+116k),
+mostly CONVERT_NOW with selective SPLIT. statistical-drift's far larger gains
+(+1.79M test) are a high-variance IDR-depreciation trend bet (timesfm doing the same lost
+-347k), not a responsible default. Keep the conservative engine.
+
+## Next work: Phase 13 (backend integration)
+
+Wire the FX engine + fraud model into the core backend contract. FX: run the ensemble
+models to produce a forecast per (pair, horizon), feed the decision engine, and serve the
+result through GET /fx/advisory (replacing the legacy statistical service) with amount,
+horizon, and risk_preference from the request — keep CONTRACTS.md backward compatible
+(legacy WAIT/HOLD still accepted). Fraud (already served in Phase 7): backend sends full
+transaction context, stores risk score with the transaction, maps HIGH -> REVIEW_REQUIRED,
+and has an explicit fallback when the AI service is unavailable. Add contract tests between
+backend and AI. Serving note: running Chronos-2/TimesFM per request is heavy — consider
+serving FX with the lighter NHITS + statistical ensemble, or precomputed/cached forecasts,
+and keep a demo fallback when neural deps/artifacts are absent.
 
 ## Verification and guardrails
 

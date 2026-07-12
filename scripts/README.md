@@ -27,3 +27,6 @@ Run with the workspace-root venv (`../venv/Scripts/python.exe`):
 - `finetune_fx.py` — Phase 11 Chronos-Bolt fine-tuning (CPU): light fine-tune on the
   TRAIN split, saves to `../artifacts/fx_finetune/`. Compare vs zero-shot via
   `backtest_fx.py --models chronos-bolt` / `chronos-bolt-ft`. See `../LOCAL_PHASE11.md`.
+- `build_ensemble.py` — Phase 12 FX ensemble + fee-aware decision engine (CPU): combines
+  the existing per-model backtest predictions with per-pair validation-error weights,
+  evaluates the decision engine, and writes `../artifacts/fx_ensemble/`. No model re-run.

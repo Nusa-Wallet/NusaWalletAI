@@ -2,7 +2,7 @@
 
 from app.config import FX_MODEL_VERSION
 from app.fx.data import fetch_series
-from app.fx.decision import decide
+from app.fx.decision.statistical import decide
 from app.fx.features import compute_statistics
 
 
